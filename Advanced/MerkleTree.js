@@ -10,6 +10,7 @@ const tokens = [
 //2、将数据进行keccak256哈希（与solidity使用的哈希函数匹配），创建叶子结点
 const leaf = tokens.map((x) => ethers.keccak256(x));
 //3、创建Merkle Tree，哈希函数仍然选择keccak256，可选参数sortPairs: true（constructor函数文档），与Merkle Tree合约处理方式保持一致
+/**第二个参数 ethers.keccak256 的作用是告诉 Merkle 树的构造函数，在构建树的过程中要使用 ethers.keccak256 这个哈希函数来计算节点的哈希值 */
 const merkletree = new MerkleTree(leaf, ethers.keccak256, { sortPairs: true });
 //4、获得Merkle Tree的root
 const root = merkletree.getHexRoot();

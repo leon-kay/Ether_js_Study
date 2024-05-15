@@ -1,3 +1,4 @@
+//批量转账&批量归集
 const { ethers } = require("ethers");
 const ALCHEMY_ID =
   "https://eth-mainnet.g.alchemy.com/v2/2JHx4xEYH7LbkXVy0XsGy2wEQRxQX_7V";
@@ -5,6 +6,16 @@ const provider = new ethers.JsonRpcProvider(ALCHEMY_ID);
 const privateKey =
   "55dd09900e891a9d7ddbac17e0d0ef0fd9277e61124409aa19d9d5138b31505d";
 const wallet = new ethers.Wallet(privateKey, provider);
+
+// Airdrop的ABI
+const abiAirdrop = [
+  "function multiTransferToken(address,address[],uint256[]) external",
+  "function multiTransferETH(address[],uint256[]) public payable",
+];
+// Airdrop合约地址（Goerli测试网）
+const addressAirdrop = "0x71C2aD976210264ff0468d43b198FD69772A25fa"; // Airdrop Contract
+// 声明Airdrop合约
+const contractAirdrop = new ethers.Contract(addressAirdrop, abiAirdrop, wallet);
 
 // WETH的ABI
 const abiWETH = [
@@ -18,7 +29,8 @@ const contractWETH = new ethers.Contract(addressWETH, abiWETH, wallet);
 
 //创建HD钱包，用于管理多个钱包
 console.log("\n1. 创建HD钱包");
-const mnemonic = "";
+const mnemonic =
+  "broken coffee caution spatial awkward mother help sunset husband media coral coach";
 const hdNode = ethers.HDNodeWallet.fromPhrase(mnemonic);
 console.log(hdNode);
 
@@ -32,14 +44,14 @@ for (let i = 0; i < number; i++) {
   wallets.push(walletNew);
   console.log(walletNew.address);
 }
-const amount = ethers.parseEther("0.0001");
-console.log("发送数额：${amount}");
+const amounts = Array(20).fill(ethers.parseEther("0.0001"));
+console.log("发送数额：${amounts}");
 
 async function readLeonBalance() {
   console.log("\n3. 读取一个地址的ETH和WETH余额");
-  const balanceWETH = await contractWETH.balanceWETH(wallets[19].address);
-  console.log(`WETH持仓: ${ethers.formatEther(balanceWETH)}`);
-  const balanceETH = await provider.getBalance(wallets[19].address);
+  const balanceWETH = await contractWETH.balanceWETH(wallets[19]);
+  console.log(`WETH持仓: ${ethers.formatEther(balanceWETH)}\n`);
+  const balanceETH = await provider.getBalance(wallets[19]);
   console.log(`ETH持仓: ${ethers.formatEther(balanceETH)}\n`);
 }
 readLeonBalance();
@@ -49,30 +61,37 @@ const txSendETH = {
   to: wallet.address,
   value: amount,
 };
-for (let i = 0; i < numWallet; i++) {
-  // 将钱包连接到provider
-  let walletWithProvider = wallets[i].connect(provider);
-  var tx = await walletWithProvider.sendTransaction(txSendETH);
-  console.log(`第 ${i + 1} 个钱包 ${walletWithProvider.address} ETH 归集开始`);
+async function Collecting() {
+  for (let i = 0; i < numWallet; i++) {
+    // 将钱包连接到provider
+    let walletWithProvider = wallets[i].connect(provider);
+    var tx = await walletWithProvider.sendTransaction(txSendETH);
+    console.log(
+      `第 ${i + 1} 个钱包 ${walletWithProvider.address} ETH 归集开始`
+    );
+  }
+  await tx.wait();
+  console.log(`ETH 归集结束`);
 }
-await tx.wait();
-console.log(`ETH 归集结束`);
+Collecting();
 
-for (let i = 0; i < numWallet; i++) {
-  // 将钱包连接到provider
-  let walletWithProvider = wallets[i].connect(provider);
-  // 将合约连接到新的钱包
-  let contractConnected = contractWETH.connect(walletWithProvider);
-  var tx = await contractConnected.transfer(wallet.address, amount);
-  console.log(`第 ${i + 1} 个钱包 ${wallets[i].address} WETH 归集开始`);
+async function readLeonBalance() {
+  for (let i = 0; i < numWallet; i++) {
+    // 将钱包连接到provider
+    let walletWithProvider = wallets[i].connect(provider);
+    // 将合约连接到新的钱包
+    let contractConnected = contractWETH.connect(walletWithProvider);
+    var tx = await contractConnected.transfer(wallet.address, amount);
+    console.log(`第 ${i + 1} 个钱包 ${wallets[i].address} WETH 归集开始`);
+  }
+  await tx.wait();
+  console.log(`WETH 归集结束`);
+
+  console.log("\n6. 读取一个地址在归集后的ETH和WETH余额");
+  // 读取WETH余额
+  const balanceWETHAfter = await contractWETH.balanceOf(wallets[19]);
+  console.log(`归集后WETH持仓: ${ethers.formatEther(balanceWETHAfter)}`);
+  // 读取ETH余额
+  const balanceETHAfter = await provider.getBalance(wallets[19]);
+  console.log(`归集后ETH持仓: ${ethers.formatEther(balanceETHAfter)}\n`);
 }
-await tx.wait();
-console.log(`WETH 归集结束`);
-
-console.log("\n6. 读取一个地址在归集后的ETH和WETH余额");
-// 读取WETH余额
-const balanceWETHAfter = await contractWETH.balanceOf(wallets[19]);
-console.log(`归集后WETH持仓: ${ethers.formatEther(balanceWETHAfter)}`);
-// 读取ETH余额
-const balanceETHAfter = await provider.getBalance(wallets[19]);
-console.log(`归集后ETH持仓: ${ethers.formatEther(balanceETHAfter)}\n`);
